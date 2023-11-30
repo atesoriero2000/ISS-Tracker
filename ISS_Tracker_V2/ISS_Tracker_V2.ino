@@ -6,11 +6,46 @@
 #include "Symbols.h"
 #include <WifiLocation.h>
 
+// ARISS Station Status: https://www.ariss.org/current-status-of-iss-stations.html
+
+//TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+/*
+ * WIFIMANAGER
+   * LED feedback and LCD directions
+   * Button override
+   * Add location input
+   * if inputted bypass location API
+   * Default location
+  
+ * handle location result  
+ * DISCORD!!
+   * link ny2o
+   * Boot info
+  
+ * Progress bar use max-(end-max) for start 
+    * check if max gets sckewed after peak 
+    * duration? xxx
+    
+ * SWITCH ALL ??:: to arrays
+ * Call Signs
+ */
+ 
+
 //#define SSID  "29BrackettBoys"
 //#define KEY   "Frick35Jewett"
 
 #define SSID  "WPI Sailbot"
 #define KEY   "YJKFMP6B8D"
+
+#define RED_LED 2
+#define RAINBOW_LED 0
+#define B1 15
+#define B2 13
+#define B3 12
+#define B4 14
+#define B5 16
+
+#define UTC-5 -5*60*60
 
 #define GOOGLE_API_KEY "AIzaSyCMebnUWyOQuw8xNj6oeMZsH7qBqbOqBbU"
 //#define WEBHOOK "https://discord.com/api/webhooks/1057187391338729502/Ouv3SCZVQcniGfEuoDIc8ryEyzVlT--8vy5JdpkK2KpTGojrpdZgwd1Ugj2twUTDYaTP"
@@ -25,42 +60,9 @@ const String ALT = "0";
 const String DAYS = "1";
 const String MIN_ELE = "5"; 
 const String API_KEY = "C84895-P3LRCE-AFE97B-54RM"; //NOTE: 1000 req/hour
-
 String URL;
 #define HOST  "api.n2yo.com"
 #define PORT  443
-
-#define RED_LED 2
-#define RAINBOW_LED 0
-#define B1 15
-#define B2 13
-#define B3 12
-#define B4 14
-#define B5 16
-
-
-// ARISS Station Status: https://www.ariss.org/current-status-of-iss-stations.html
-
-//TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
-/*
- * WIFIMANAGER
-  * LED feedback and LCD directions
-  * Button override
-  * Add location input
-  * if inputted bypass location API
-  * Default location
- * DISCORD!!
-  * link ny2o
-  * error 
-  * Boot info
-  * flybynow
-    * Link ny2o
-    * change color for awake status
-* SWITCH ALL ??:: to arrays
- * location result
- * NY20 -4
- * Call Signs
- */
 
 WifiLocation location (GOOGLE_API_KEY);
 WiFiClientSecure client;
@@ -69,20 +71,16 @@ DynamicJsonDocument doc(4096);
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 
 static time_t now;
-
-#define UTC-4 -4*60*60
-
 int page = 1;
-
 long lastTimeUpdate = 0;
 int lastPage = 0;
-
-bool flybyNow = false;
+bool flybyNow;
+int lastFlybyNowState = -1;
 bool peak = false;
 bool apiUpdated = true;
-bool discord = false;
+//bool discord = false;
 int passesToday;
-long lastPassEDT;
+long lastPassET;
 int httpsCode;
 
 struct Flyby {
@@ -176,9 +174,7 @@ void setup() {
   lcd.print("N2YO API: ");
   https.setReuse(false);
   client.setInsecure();
-  delay(500); //NOTE
   sendDiscord("Tracker Connected", 65280);
-  
   lcd.setCursor(18, 3);
   lcd.printByte(7);
 }
@@ -205,19 +201,33 @@ void loop() {
       apiUpdated = true;
       deserializeJson(doc, https.getString()); 
       JsonObject nextPass = doc["passes"][0].as<JsonObject>();
+
       nextFlyby = {
-          (double) nextPass["startAz"],(String) nextPass["startAzCompass"], (unsigned long) nextPass["startUTC"],
+          (double) nextPass["startAz"],(String) nextPass["startAzCompass"], nextPass["startUTC"],
           (double) nextPass["maxAz"], (String) nextPass["maxAzCompass"], (double) nextPass["maxEl"], (unsigned long) nextPass["maxUTC"],
           (double) nextPass["endAz"], (String) nextPass["endAzCompass"], (unsigned long) nextPass["endUTC"]
       };
-      
+
+      if((nextFlyby.endUTC - 2*nextFlyby.maxUTC + nextFlyby.startUTC) > 5){
+        Serial.println("StartUTC: " + (String) nextFlyby.startUTC);
+        Serial.println("MaxUTC: " + (String) nextFlyby.maxUTC);
+        Serial.println("EndUTC: " + (String) nextFlyby.endUTC);
+        Serial.println("2*MAX: " + (String) (2*nextFlyby.maxUTC) );
+
+        nextFlyby.startUTC = 2*nextFlyby.maxUTC-nextFlyby.endUTC;
+
+        Serial.println("StartUTC: " + (String) nextFlyby.startUTC);
+        Serial.println("NOW: " + (String) (uint32_t) now);
+
+      }
+
       //For # Passes today
-      lastPassEDT = 0;
-      long days = floor(((uint32_t) now + UTC-4)/(24*60*60));
+      lastPassET = 0;
+      long days = floor(((uint32_t) now + UTC-5)/(24*60*60));
       for(passesToday=0; passesToday<doc["passes"].size(); passesToday++){
-        long startEDT = (long) doc["passes"][passesToday]["startUTC"]+(UTC-4);
-        if (floor(startEDT/(24*60*60))>days) break;
-        lastPassEDT = startEDT;
+        long startET = (long) doc["passes"][passesToday]["startUTC"]+(UTC-5);
+        if (floor(startET/(24*60*60))>days) break;
+        lastPassET = startET;
       }
 //      sendFlybyDiscord(16776960, nextFlyby);
     } else {
@@ -240,14 +250,19 @@ void loop() {
   peak = abs((signed long) nextFlyby.maxUTC - (signed long) now) < (nextFlyby.endUTC - nextFlyby.startUTC)*.25/2;  //Peak at top 25% of traj
   digitalWrite(RAINBOW_LED, flybyNow);
   if(millis() % 250 <= 5) digitalWrite(RED_LED, peak && !digitalRead(RED_LED));
-  if(!flybyNow && !discord) sendFlybyDiscord("Next Flyby:", 16760576, nextFlyby);
-  if(!flybyNow) discord = true; 
-  if(flybyNow && discord){
-    page=1;
-    sendFlybyDiscord("Flyby NOW!!!!", 32767, nextFlyby);
-    discord = false; 
+
+
+  //######################
+  //## Discord Messages ##
+  //######################
+
+  if(flybyNow != lastFlybyNowState){
+    if(flybyNow) sendFlybyDiscord("Flyby NOW!!!!", 32767, nextFlyby);
+    else sendFlybyDiscord("Next Flyby:", 16760576, nextFlyby);
   }
-  
+  lastFlybyNowState = flybyNow;
+
+ 
   //##################
   //## LCD Printing ##
   //##################
@@ -296,7 +311,7 @@ void loop() {
         break;
       
       case 2:
-        lcd.print("At:   " + getFormattedTime(nextFlyby.startUTC + UTC-4, false) + " EDT");
+        lcd.print("At:   " + getFormattedTime(nextFlyby.startUTC + UTC-5, false) + " EST");
         lcd.setCursor(0,1);
         lcd.print("Dur:  " + getFormattedTime(nextFlyby.endUTC - nextFlyby.startUTC));
         lcd.setCursor(0,2);
@@ -308,7 +323,7 @@ void loop() {
       case 3:
         lcd.print("Passes Left Today: " + (String) passesToday);
         lcd.setCursor(0,1);
-        lcd.print("Last: " + ((lastPassEDT) ? getFormattedTime(lastPassEDT, false) + " EDT" : "N/A"));
+        lcd.print("Last: " + ((lastPassET) ? getFormattedTime(lastPassET, false) + " EST" : "N/A"));
         lcd.setCursor(0,2);        
         break;
 
@@ -392,10 +407,10 @@ int getAwakeStatus(long time){
 
   int daySecs = time % (24*60*60);
      
-  if(daySecs < great_start || daySecs > asleep_start) { return 0; //SLEEP
-  } else if(daySecs > ok_start && daySecs < ok_end) {   return 1;  //OK
-  } else {                                              return 2;  //GREAT
-  } 
+  if(daySecs < great_start || daySecs > asleep_start) return 0; //SLEEP
+  else if(daySecs > ok_start && daySecs < ok_end) return 1;  //OK
+  else return 2;  //GREAT
+  
 }
 
 void printLoadingIcons(int x, int line, int i){
@@ -406,15 +421,16 @@ void printLoadingIcons(int x, int line, int i){
 
 //https://www.instructables.com/Send-a-Message-on-Discord-Using-Esp32-Arduino-MKR1/
 //https://github.com/maditnerd/discord_test/blob/master/discord_test_esp8266/discord.h
+//https://birdie0.github.io/discord-webhooks-guide/discord_webhook.html
 //32767
 //16776960
 void sendFlybyDiscord(String title, int color, Flyby thisFlyby){
   String fullTitle = "**" + title + "** \\n\\u0000";
   String duration = getFormattedTime(thisFlyby.endUTC - thisFlyby.startUTC);
   String awake = getAwakeStatus(thisFlyby.startUTC)?((getAwakeStatus(thisFlyby.startUTC)-1)?"Awake and free!":"Awake"):"Asleep";
-  String startEDT = getFormattedTime(thisFlyby.startUTC + UTC-4, false) + " EDT";
-  String maxEDT = getFormattedTime(thisFlyby.maxUTC + UTC-4, false) + " EDT";
-  String endEDT = getFormattedTime(thisFlyby.endUTC + UTC-4, false) + " EDT";
+  String startET = getFormattedTime(thisFlyby.startUTC + UTC-5, false) + " EST";
+  String maxET = getFormattedTime(thisFlyby.maxUTC + UTC-5, false) + " EST";
+  String endET = getFormattedTime(thisFlyby.endUTC + UTC-5, false) + " EST";
   String startCompass = (String)(int)round(thisFlyby.startAz) + "° " + thisFlyby.startAzCompass;
   String maxCompass = (String)(int)round(thisFlyby.maxAz) + "° " + thisFlyby.maxAzCompass;
   String endCompass = (String)(int)round(thisFlyby.endAz) + "° " + thisFlyby.endAzCompass;
@@ -423,16 +439,14 @@ void sendFlybyDiscord(String title, int color, Flyby thisFlyby){
 
   bool a = https.begin(client, WEBHOOK);
   https.addHeader("Content-Type", "application/json");
-  int code = https.POST("{\"content\":\"\",\"embeds\": [{\"title\": \"" + fullTitle + "\", \"color\": " + (String) color + ", \"fields\": [{\"name\": \"__Duration__\",\"value\": \"" + duration + "\\n\\u0000\"}, {\"name\": \"__Sleep Status__\",\"value\": \"" + awake + "\\n\\u0000\"}, {\"name\": \"__Start__\",\"value\": \"" + startEDT + "\\n" + startCompass + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__Max__\",\"value\": \"" + maxEDT + "\\n" + maxCompass + "\\n" + maxEl + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__End__\",\"value\": \"" + endEDT + "\\n" + endCompass + "\", \"inline\": true}] }],\"tts\":false}");
+  int code = https.POST("{\"content\":\"\",\"embeds\": [{\"title\": \"" + fullTitle + "\", \"color\": " + (String) color + ", \"fields\": [{\"name\": \"__Duration__\",\"value\": \"" + duration + "\\n\\u0000\"}, {\"name\": \"__Sleep Status__\",\"value\": \"" + awake + "\\n\\u0000\"}, {\"name\": \"__Start__\",\"value\": \"" + startET + "\\n" + startCompass + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__Max__\",\"value\": \"" + maxET + "\\n" + maxCompass + "\\n" + maxEl + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__End__\",\"value\": \"" + endET + "\\n" + endCompass + "\", \"inline\": true}] }],\"tts\":false}");
   Serial.println("Send Discord FLYBY POST Code: " + (String) code + ", " + https.errorToString(code));
 }
 
-
 //16711680
 void sendErrorDiscord(int errorCode, int color){
-  sendDiscord("**ERROR:  **" + (String) errorCode + " " + https.errorToString(errorCode), color);
+  sendDiscord("**ERROR:  **" + (String) errorCode + "   " + https.errorToString(errorCode), color);
 }
-
 
 void sendDiscord(String subContent, int color){
   String content = "";
@@ -441,15 +455,3 @@ void sendDiscord(String subContent, int color){
   int code = https.POST("{\"content\":\"" + content + "\",\"embeds\": [{\"color\": " + (String) color + ", \"fields\": [{\"name\": \"" + subContent + "\", \"value\": \"\"\}] }],\"tts\":false}");
   Serial.println("Send Discord POST Code: " + (String) code + ", " + https.errorToString(code));
 }
-
-
-////\"url\": \"https://" + HOST + URL + "\",
-//void sendDiscord(String content){
-//  bool a = https.begin(client, WEBHOOK);
-//  https.addHeader("Content-Type", "application/json");
-//  int code = https.POST("{\"content\":\"" + content + "\",\"tts\":false}");
-//  Serial.println("Send Discord POST Code: " + (String) code + ", " + https.errorToString(code));
-//}
-
-
-//"{\"content\":\"" + content + "\",\"url\": \"https://" + HOST + URL + "\",\"embeds\": [{\"title\": \"Hello!\",\"description\": \"Hi! :grinning:\",\"color\":" + (String)color + ",\"fields\": [{\"name\": \"Text\",\"value\": \"More text\",\"inline\": true},{\"name\": \"Text2\",\"value\": \"More text2\",\"inline\": true},{\"name\": \"Text3\",\"value\": \"More text3\",\"inline\": true},}],\"tts\":false}"
