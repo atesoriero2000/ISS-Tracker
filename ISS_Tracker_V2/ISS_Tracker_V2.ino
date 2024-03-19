@@ -37,6 +37,9 @@
 #define SSID  "WPI Sailbot"
 #define KEY   "YJKFMP6B8D"
 
+//#define SSID  "Tesfamily"
+//#define KEY   "Tes8628125601"
+
 #define RED_LED 2
 #define RAINBOW_LED 0
 #define B1 15
@@ -156,12 +159,12 @@ void setup() {
 
   //####################
   //## Location Setup ##
-//  //####################
+  //####################
   lcd.setCursor(0, 2);
   lcd.print("Location API: ");
-  location_t loc = location.getGeoFromWiFi();
-  LAT = String(loc.lat, 7);
-  LONG = String(loc.lon, 7);
+//  location_t loc = location.getGeoFromWiFi(); //BUG!!!
+//  LAT = String(loc.lat, 7);
+//  LONG = String(loc.lon, 7);
   URL = "/rest/v1/satellite/radiopasses/" + ISS_ID + "/" + LAT + "/" + LONG + "/" + ALT + "/" + DAYS + "/" + MIN_ELE + "/&apiKey=" + API_KEY;
   lcd.setCursor(18, 2);
   lcd.printByte(7);
