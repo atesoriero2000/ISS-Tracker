@@ -30,23 +30,20 @@
  * Call Signs
  */
  
+// const String SSIDs[] = {"WPI Sailbot", "36Albion", "Tesfamily", "Hi", "SSID5"};
+// const String KEYs[] = {"YJKFMP6B8D", "LigmaChops24", "Tes8628125601", "12345671", "KEY5"};
 
-//#define SSID  "29BrackettBoys"
-//#define KEY   "Frick35Jewett"
-
-#define SSID  "WPI Sailbot"
-#define KEY   "YJKFMP6B8D"
-
-//#define SSID  "Tesfamily"
-//#define KEY   "Tes8628125601"
+// const String LATs[] = {}
+// const String LONGs[] ={}
 
 #define RED_LED 2
 #define RAINBOW_LED 0
-#define B1 15
-#define B2 13
+
+#define B1 16
+#define B2 14
 #define B3 12
-#define B4 14
-#define B5 16
+#define B4 13
+#define B5 15
 
 #define UTC-5 -5*60*60
 
@@ -54,11 +51,27 @@
 //#define WEBHOOK "https://discord.com/api/webhooks/1057187391338729502/Ouv3SCZVQcniGfEuoDIc8ryEyzVlT--8vy5JdpkK2KpTGojrpdZgwd1Ugj2twUTDYaTP"
 #define WEBHOOK "https://discord.com/api/webhooks/1168805418320015411/7dY7KrnK_vq1H93M6f442cF5OTR29IlqCDzZrd_AXwy8re_8UZMLB1fqOnFgLUAWLLr7"
 
+struct SSID_Loc {
+  String NAME;
+  String SSID;
+  String KEY;
+  String LAT;
+  String LONG;
+};
+
+SSID_Loc LOC_ARR[5] = {
+  {"Brackett",    "WPI Sailbot",  "YJKFMP6B8D",     "42.35111",   "-71.16504"},   //Brackett
+  {"Albion",      "36Albion",     "LigmaChops24",   "42.399647",  "-71.106448"},  //Albion
+  {"Chatham",     "Tesfamily",    "Tes8628125601",  "40.740686",  "-74.384478"},  //Chatham
+  {"Hi (MA)",     "Hi (3)",       "12345671",       "42.399647",  "-71.106448"},  //Albion
+  {"Hi (Pemi)",   "Hi (3)",       "12345671",       "44.14429",   "-71.60423"},   //Pemi
+};
+SSID_Loc SelectedLocation;
+
 // N2YO API Reference: https://www.n2yo.com/api/
 // https://api.n2yo.com/rest/v1/satellite/radiopasses/25544/42.35111/-71.16504/0/1/10/&apiKey=C84895-P3LRCE-AFE97B-54RM
 const String ISS_ID = "25544";
-String LAT = "42.35111";
-String LONG = "-71.16504";
+
 const String ALT = "0";
 const String DAYS = "1";
 const String MIN_ELE = "5"; 
@@ -85,6 +98,7 @@ bool apiUpdated = true;
 int passesToday;
 long lastPassET;
 int httpsCode;
+int buttons = 0;
 
 struct Flyby {
   double startAz;         //Degrees       ex. 331.17
@@ -100,8 +114,6 @@ struct Flyby {
 };
 
 Flyby nextFlyby;
-
-
 
 void setup() {
   Serial.begin(115200);
@@ -131,8 +143,47 @@ void setup() {
   //################
   //## WIFI Setup ##
   //################
+  while(buttons == 0){
+    buttons = digitalRead(B5)<<4 | digitalRead(B4)<<3 | digitalRead(B3)<<2 | digitalRead(B2)<<1 | digitalRead(B1);
+
+    lcd.setCursor(0,0);
+    lcd.print("Select SSID: ");
+    lcd.setCursor(1,1);
+    if (millis()-1000 % 4000 < 2000){ //TODO: Slim down and update screen only on screen change
+      lcd.print("B1: " + LOC_ARR[0].NAME + "                ");
+      lcd.setCursor(1,2);
+      lcd.print("B2: " + LOC_ARR[1].NAME + "                ");
+      lcd.setCursor(1,3);
+      lcd.print("B3: " + LOC_ARR[2].NAME + "                ");
+
+    } else {
+      lcd.print("                ");
+      lcd.setCursor(1,2);
+      lcd.print("B4: " + LOC_ARR[3].NAME + "                ");
+      lcd.setCursor(1,3);
+      lcd.print("B5: " + LOC_ARR[4].NAME + "                ");
+
+    }
+    if (millis() > 20000) buttons = B00010;
+    delay(10);
+  }
+
+  SelectedLocation = LOC_ARR[__builtin_ctz(buttons)];
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("SSID Selected:");
+
+  lcd.setCursor(round((20-SelectedLocation.SSID.length())/2), 2);
+  lcd.print(SelectedLocation.SSID);
+  lcd.setCursor(0, 3);
+  lcd.print(SelectedLocation.LAT + ",");
+  lcd.setCursor(10, 3);
+  lcd.print(SelectedLocation.LONG);
+  delay(2000);
+
   WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, KEY);
+  WiFi.begin(SelectedLocation.SSID, SelectedLocation.KEY);
+  lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Connecting WiFi: ");
   for(int i=0; WiFi.status() != WL_CONNECTED; i++) printLoadingIcons(18, 0, i);
@@ -165,10 +216,10 @@ void setup() {
 //  location_t loc = location.getGeoFromWiFi(); //BUG!!!
 //  LAT = String(loc.lat, 7);
 //  LONG = String(loc.lon, 7);
-  URL = "/rest/v1/satellite/radiopasses/" + ISS_ID + "/" + LAT + "/" + LONG + "/" + ALT + "/" + DAYS + "/" + MIN_ELE + "/&apiKey=" + API_KEY;
+  URL = "/rest/v1/satellite/radiopasses/" + ISS_ID + "/" + SelectedLocation.LAT + "/" + SelectedLocation.LONG + "/" + ALT + "/" + DAYS + "/" + MIN_ELE + "/&apiKey=" + API_KEY;
   lcd.setCursor(18, 2);
   lcd.printByte(7);
-  Serial.println("WiFiLocation Result: " + location.wlStatusStr (location.getStatus ()) + "    " + LAT + ", " + LONG); //TODO handle bad status (ie halt int)
+  Serial.println("WiFiLocation Result: " + location.wlStatusStr (location.getStatus ()) + "    " + SelectedLocation.LAT + ", " + SelectedLocation.LONG); //TODO handle bad status (ie halt int)
 
   //####################
   //## N2YO API Setup ##
@@ -206,7 +257,7 @@ void loop() {
       JsonObject nextPass = doc["passes"][0].as<JsonObject>();
 
       nextFlyby = {
-          (double) nextPass["startAz"],(String) nextPass["startAzCompass"], nextPass["startUTC"],
+          (double) nextPass["startAz"], (String) nextPass["startAzCompass"], nextPass["startUTC"],
           (double) nextPass["maxAz"], (String) nextPass["maxAzCompass"], (double) nextPass["maxEl"], (unsigned long) nextPass["maxUTC"],
           (double) nextPass["endAz"], (String) nextPass["endAzCompass"], (unsigned long) nextPass["endUTC"]
       };
@@ -345,9 +396,9 @@ void loop() {
         lcd.setCursor(0,1);
         lcd.print("API Status:  " + (String) (client.connected()?(char)7:'!') + " (" + (String) httpsCode + ")");
         lcd.setCursor(0,2);
-        lcd.print("Lat:   " + LAT);
+        lcd.print("Lat:   " + SelectedLocation.LAT);
         lcd.setCursor(0,3);
-        lcd.print("Long: " + LONG);
+        lcd.print("Long: " + SelectedLocation.LONG);
         break;
     }
   }
