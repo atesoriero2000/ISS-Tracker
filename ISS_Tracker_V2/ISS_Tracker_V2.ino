@@ -29,9 +29,6 @@
  * SWITCH ALL ??:: to arrays
  * Call Signs
  */
- 
-// const String SSIDs[] = {"WPI Sailbot", "36Albion", "Tesfamily", "Hi", "SSID5"};
-// const String KEYs[] = {"YJKFMP6B8D", "LigmaChops24", "Tes8628125601", "12345671", "KEY5"};
 
 // const String LATs[] = {}
 // const String LONGs[] ={}
@@ -47,9 +44,8 @@
 
 #define UTC-5 -5*60*60
 
-#define GOOGLE_API_KEY "AIzaSyCMebnUWyOQuw8xNj6oeMZsH7qBqbOqBbU"
-//#define WEBHOOK "https://discord.com/api/webhooks/1057187391338729502/Ouv3SCZVQcniGfEuoDIc8ryEyzVlT--8vy5JdpkK2KpTGojrpdZgwd1Ugj2twUTDYaTP"
-#define WEBHOOK "https://discord.com/api/webhooks/1168805418320015411/7dY7KrnK_vq1H93M6f442cF5OTR29IlqCDzZrd_AXwy8re_8UZMLB1fqOnFgLUAWLLr7"
+#define GOOGLE_API_KEY "xxxxxxxxxxxxx"
+#define WEBHOOK "xxxxxxxxxxxxxxxx"
 
 struct SSID_Loc {
   String NAME;
@@ -60,11 +56,11 @@ struct SSID_Loc {
 };
 
 SSID_Loc LOC_ARR[5] = {
-  {"Brackett",    "WPI Sailbot",  "YJKFMP6B8D",     "42.35111",   "-71.16504"},   //Brackett
-  {"Albion",      "36Albion",     "LigmaChops24",   "42.399647",  "-71.106448"},  //Albion
-  {"Chatham",     "Tesfamily",    "Tes8628125601",  "40.740686",  "-74.384478"},  //Chatham
-  {"Hi (MA)",     "Hi (3)",       "12345671",       "42.399647",  "-71.106448"},  //Albion
-  {"Hi (Pemi)",   "Hi (3)",       "12345671",       "44.14429",   "-71.60423"},   //Pemi
+  {"Brackett",    "WPI Sailbot",  "xxxxxxxx",     "42.35111",   "-71.16504"},   //Brackett
+  {"Albion",      "36Albion",     "xxxxxxxx",   "42.399647",  "-71.106448"},  //Albion
+  {"Chatham",     "Tesfamily",    "xxxxxxxx",  "40.740686",  "-74.384478"},  //Chatham
+  {"Hi (MA)",     "Hi (3)",       "xxxxxxxx",       "42.399647",  "-71.106448"},  //Albion
+  {"Hi (Pemi)",   "Hi (3)",       "xxxxxxxx",       "44.14429",   "-71.60423"},   //Pemi
 };
 SSID_Loc SelectedLocation;
 
