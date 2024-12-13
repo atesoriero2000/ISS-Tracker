@@ -3,7 +3,6 @@
 <!-- <img src= "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbnFyOXB3aHprYjJnZjhoaTZyaWRxenpkcjJheGRkNXVsMXc0aHJ0MCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/o50R0TuU1bRYoM0srU/giphy.gif" width="300" > -->
 <!-- <img src= "https://i.imgur.com/wrucoP8.jpg" width="300" > -->
 <!-- <iframe class="imgur-embed" width="100%" height="1280" frameborder="0" src="https://i.imgur.com/wrucoP8.gifv#embed"></iframe> -->
-<img src= "https://github.com/atesoriero2000/tour-chatham/blob/master/app/images/gifs/tour1.gif?raw=true" width="25%" >
-<img src= "https://github.com/atesoriero2000/tour-chatham/blob/master/app/images/gifs/tour2.gif?raw=true" width="25%" >
-<img src= "https://github.com/atesoriero2000/tour-chatham/blob/master/app/images/gifs/tour3.gif?raw=true" width="25%">
+<img src= "https://github.com/atesoriero2000/ISS-Tracker/blob/master/IMG_2888.jpg?raw=true" width="25%" >
+<img src= "https://github.com/atesoriero2000/ISS-Tracker/blob/master/IMG_2886.jpg?raw=true" width="25%" >
 </p>
