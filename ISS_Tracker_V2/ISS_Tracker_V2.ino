@@ -10,11 +10,15 @@
 
 //TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 /*
+ * Updated
+ *  Timezone
+ *  Buttons handling
+ *  60 second timeout
+ *  
+ * 
  * Return to Page 1 after 30ish seconds inactivity
  * Refactor to TIMEZONE
- * Flashy wifi selection
- * Last flyby and passes left broken
- * Discord time behind 1 hour compared to screen
+ * Flashy wifi selection (make it a choice at wifi selection)
  * Discord & screen awake status Jank af (use array?) 
  * 
  * 
@@ -50,7 +54,7 @@
 #define B4 13
 #define B5 15
 
-#define UTC-5 -5*60*60
+#define UTC-5 -4*60*60 //TODO FIXME BADDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 
 //#define GOOGLE_API_KEY "xxxxxxxxxxxxx"
 //#define WEBHOOK "xxxxxxxxxxxxxxxx"
@@ -105,6 +109,7 @@ int passesToday;
 long lastPassET;
 int httpsCode;
 int buttons = 0;
+long lastPress;
 
 struct Flyby {
   double startAz;         //Degrees       ex. 331.17
@@ -237,6 +242,7 @@ void setup() {
   sendDiscord("Tracker Connected", 65280);
   lcd.setCursor(18, 3);
   lcd.printByte(7);
+  lastPress = time(nullptr);
 }
 
 void loop() {
@@ -300,11 +306,14 @@ void loop() {
   //## Buttons, LEDs, and State ##
   //##############################
 
-  if(digitalRead(B1)) page=1;
-  if(digitalRead(B2)) page=2;
-  if(digitalRead(B3)) page=3;
-  if(digitalRead(B4)) page=4;
-  if(digitalRead(B5)) page=5;
+  buttons = digitalRead(B5)<<4 | digitalRead(B4)<<3 | digitalRead(B3)<<2 | digitalRead(B2)<<1 | digitalRead(B1);
+
+  if(buttons > 0){
+    lastPress = now;
+    page = __builtin_ctzl(buttons)+1;
+  }
+  if(now-lastPress > 60) page=1;
+
 
   flybyNow = nextFlyby.startUTC && nextFlyby.startUTC <= (uint32_t) now;
   peak = abs((signed long) nextFlyby.maxUTC - (signed long) now) < (nextFlyby.endUTC - nextFlyby.startUTC)*.25/2;  //Peak at top 25% of traj
