@@ -10,6 +10,14 @@
 
 //TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 /*
+ * Return to Page 1 after 30ish seconds inactivity
+ * Refactor to TIMEZONE
+ * Flashy wifi selection
+ * Last flyby and passes left broken
+ * Discord time behind 1 hour compared to screen
+ * Discord & screen awake status Jank af (use array?) 
+ * 
+ * 
  * WIFIMANAGER
    * LED feedback and LCD directions
    * Button override
@@ -44,8 +52,10 @@
 
 #define UTC-5 -5*60*60
 
-#define GOOGLE_API_KEY "xxxxxxxxxxxxx"
-#define WEBHOOK "xxxxxxxxxxxxxxxx"
+//#define GOOGLE_API_KEY "xxxxxxxxxxxxx"
+//#define WEBHOOK "xxxxxxxxxxxxxxxx"
+#define GOOGLE_API_KEY "AIzaSyCMebnUWyOQuw8xNj6oeMZsH7qBqbOqBbU"
+#define WEBHOOK "https://discord.com/api/webhooks/1168805418320015411/7dY7KrnK_vq1H93M6f442cF5OTR29IlqCDzZrd_AXwy8re_8UZMLB1fqOnFgLUAWLLr7"
 
 struct SSID_Loc {
   String NAME;
@@ -58,7 +68,7 @@ struct SSID_Loc {
 SSID_Loc LOC_ARR[5] = {
   {"Brackett",    "WPI Sailbot",  "xxxxxxxx",     "42.35111",   "-71.16504"},   //Brackett
   {"Albion",      "36Albion",     "xxxxxxxx",   "42.399647",  "-71.106448"},  //Albion
-  {"Chatham",     "Tesfamily",    "xxxxxxxx",  "40.740686",  "-74.384478"},  //Chatham
+  {"Chatham",     "Tesfamily",    "Tes8628125601",  "40.740686",  "-74.384478"},  //Chatham
   {"Hi (MA)",     "Hi (3)",       "xxxxxxxx",       "42.399647",  "-71.106448"},  //Albion
   {"Hi (Pemi)",   "Hi (3)",       "xxxxxxxx",       "44.14429",   "-71.60423"},   //Pemi
 };
@@ -145,7 +155,7 @@ void setup() {
     lcd.setCursor(0,0);
     lcd.print("Select SSID: ");
     lcd.setCursor(1,1);
-    if (millis()-1000 % 4000 < 2000){ //TODO: Slim down and update screen only on screen change
+    if ((millis()-1000) % 4000 < 2000){ //TODO: Slim down and update screen only on screen change
       lcd.print("B1: " + LOC_ARR[0].NAME + "                ");
       lcd.setCursor(1,2);
       lcd.print("B2: " + LOC_ARR[1].NAME + "                ");
@@ -160,7 +170,7 @@ void setup() {
       lcd.print("B5: " + LOC_ARR[4].NAME + "                ");
 
     }
-    if (millis() > 20000) buttons = B00010;
+    if (millis() > 20000) buttons = B00100;
     delay(10);
   }
 
