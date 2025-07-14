@@ -154,26 +154,32 @@ void setup() {
   //################
   //## WIFI Setup ##
   //################
+  int wifi_page = -1;
   while(buttons == 0){
     buttons = digitalRead(B5)<<4 | digitalRead(B4)<<3 | digitalRead(B3)<<2 | digitalRead(B2)<<1 | digitalRead(B1);
 
-    lcd.setCursor(0,0);
-    lcd.print("Select SSID: ");
-    lcd.setCursor(1,1);
-    if ((millis()-1000) % 4000 < 2000){ //TODO: Slim down and update screen only on screen change
-      lcd.print("B1: " + LOC_ARR[0].NAME + "                ");
-      lcd.setCursor(1,2);
-      lcd.print("B2: " + LOC_ARR[1].NAME + "                ");
-      lcd.setCursor(1,3);
-      lcd.print("B3: " + LOC_ARR[2].NAME + "                ");
+    int current_page = (millis() / 2000) % 2;
+    if (current_page != wifi_page) {
+      wifi_page = current_page;
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Select SSID: ");
+      lcd.setCursor(1,1);
+      if (wifi_page == 0){
+        lcd.print("B1: " + LOC_ARR[0].NAME);
+        lcd.setCursor(1,2);
+        lcd.print("B2: " + LOC_ARR[1].NAME);
+        lcd.setCursor(1,3);
+        lcd.print("B3: " + LOC_ARR[2].NAME);
 
-    } else {
-      lcd.print("                ");
-      lcd.setCursor(1,2);
-      lcd.print("B4: " + LOC_ARR[3].NAME + "                ");
-      lcd.setCursor(1,3);
-      lcd.print("B5: " + LOC_ARR[4].NAME + "                ");
+      } else {
+        lcd.print("");
+        lcd.setCursor(1,2);
+        lcd.print("B4: " + LOC_ARR[3].NAME);
+        lcd.setCursor(1,3);
+        lcd.print("B5: " + LOC_ARR[4].NAME);
 
+      }
     }
     if (millis() > 20000) buttons = B00100;
     delay(10);
