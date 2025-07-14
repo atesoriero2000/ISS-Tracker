@@ -61,6 +61,13 @@
 #define GOOGLE_API_KEY "AIzaSyCMebnUWyOQuw8xNj6oeMZsH7qBqbOqBbU"
 #define WEBHOOK "https://discord.com/api/webhooks/1168805418320015411/7dY7KrnK_vq1H93M6f442cF5OTR29IlqCDzZrd_AXwy8re_8UZMLB1fqOnFgLUAWLLr7"
 
+#include <ESP8266WebServer.h>
+#include <DNSServer.h>
+#include <ESP8266mDNS.h>
+
+ESP8266WebServer server(80);
+DNSServer dnsServer;
+
 struct SSID_Loc {
   String NAME;
   String SSID;
@@ -177,7 +184,7 @@ void setup() {
         lcd.setCursor(1,2);
         lcd.print("B4: " + LOC_ARR[3].NAME);
         lcd.setCursor(1,3);
-        lcd.print("B5: " + LOC_ARR[4].NAME);
+        lcd.print("B5: Web Provision");
 
       }
     }
@@ -185,7 +192,11 @@ void setup() {
     delay(10);
   }
 
-  SelectedLocation = LOC_ARR[__builtin_ctz(buttons)];
+  if (buttons == 1 << 4) {
+    webProvision();
+  } else {
+    SelectedLocation = LOC_ARR[__builtin_ctz(buttons)];
+  }
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("SSID Selected:");
@@ -249,6 +260,54 @@ void setup() {
   lcd.setCursor(18, 3);
   lcd.printByte(7);
   lastPress = time(nullptr);
+}
+
+const char* html = "<!DOCTYPE html><html><head><title>ISS Tracker Setup</title></head><body><h1>ISS Tracker Setup</h1><form action=/save><h2>WiFi</h2><label>SSID</label><br><input type=text name=ssid><br><label>Password</label><br><input type=password name=pass><br><h2>Location</h2><label>Latitude</label><br><input type=text name=lat><br><label>Longitude</label><br><input type=text name=lon><br><br><input type=submit value=Save></form></body></html>";
+
+void webProvision() {
+  bool provisioned = false;
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Web Provisioning");
+  lcd.setCursor(0, 1);
+  lcd.print("Connect to:");
+  lcd.setCursor(0, 2);
+  lcd.print("ISS-Tracker-AP");
+  lcd.setCursor(0, 3);
+  lcd.print("http://192.168.4.1/"); //http://iss-tracker.local
+
+  WiFi.softAP("ISS-Tracker-AP");
+  MDNS.begin("iss-tracker");
+
+  server.on("/", []() {
+    server.send(200, "text/html", html);
+  });
+
+  server.on("/save", [&]() {
+    SelectedLocation.SSID = server.arg("ssid");
+    SelectedLocation.KEY = server.arg("pass");
+    SelectedLocation.LAT = server.arg("lat");
+    SelectedLocation.LONG = server.arg("lon");
+    server.send(200, "text/plain", "Saved! You may exit this page");
+    delay(1000);
+    provisioned = true;
+  });
+
+  server.onNotFound([]() {
+    server.send(404, "text/plain", "Not found");
+  });
+
+  server.begin();
+
+  while (!provisioned) {
+    printLoadingIcons(18, 0, millis()/100);
+    server.handleClient();
+    dnsServer.processNextRequest();
+  }
+
+  server.stop();
+  WiFi.softAPdisconnect(true);
+  MDNS.end();
 }
 
 void loop() {
