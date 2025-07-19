@@ -81,7 +81,7 @@ SSID_Loc LOC_ARR[5] = {
   {"Albion",      "36Albion",     "xxxxxxxx",   "42.399647",  "-71.106448"},  //Albion
   {"Chatham",     "Tesfamily",    "Tes8628125601",  "40.740686",  "-74.384478"},  //Chatham
   {"Hi (MA)",     "Hi (3)",       "xxxxxxxx",       "42.399647",  "-71.106448"},  //Albion
-  {"Hi (Pemi)",   "Hi (3)",       "xxxxxxxx",       "44.14429",   "-71.60423"},   //Pemi
+  {"Hi (Pemi)",   "Hi (3)",       "xxxxxxxx",       "44.14429",   "-71.60423"},   //Pemi NOTE: Overwritten for Web Provisioning
 };
 SSID_Loc SelectedLocation;
 
@@ -262,7 +262,7 @@ void setup() {
   lastPress = time(nullptr);
 }
 
-const char* html = "<!DOCTYPE html><html><head><title>ISS Tracker Setup</title><script>function getNetworks(){fetch('/networks').then(r=>r.json()).then(d=>{let e=document.getElementById('networks');e.innerHTML='';d.forEach(n=>{let i=document.createElement('a');i.href='#';i.innerText=n.ssid;i.onclick=()=>{document.getElementById('ssid').value=n.ssid};e.appendChild(i);e.appendChild(document.createElement('br'))})})}function getLocation(){navigator.geolocation.getCurrentPosition(p=>{document.getElementById('lat').value=p.coords.latitude;document.getElementById('lon').value=p.coords.longitude})}window.onload=getNetworks;</script></head><body><h1>ISS Tracker Setup</h1><form action=/save><h2>WiFi</h2><div id=networks></div><button type=button onclick=getNetworks()>Refresh</button><br><br><label>SSID</label><br><input id=ssid type=text name=ssid><br><label>Password</label><br><input type=password name=pass><br><h2>Location</h2><button type=button onclick=getLocation()>Use Current Location</button><br><br><label>Latitude</label><br><input id=lat type=text name=lat><br><label>Longitude</label><br><input id=lon type=text name=lon><br><br><input type=submit value=Save></form></body></html>";
+const char* html = R"rawliteral(<!DOCTYPE html><html><head><title>ISS Tracker Setup</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Arial,sans-serif;margin:20px;background-color:#f4f4f4}h1,h2{color:#333}form{background-color:#fff;padding:20px;border-radius:5px}input[type=text],input[type=password]{width:100%;padding:12px 20px;margin:8px 0;display:inline-block;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}button,input[type=submit]{width:100%;background-color:#4CAF50;color:#fff;padding:14px 20px;margin:8px 0;border:none;border-radius:4px;cursor:pointer}button:hover,input[type=submit]:hover{background-color:#45a049}#networks a{display:block;padding:5px;text-decoration:none;color:#007bff}#networks a:hover{background-color:#eee}.error{color:red}</style><script>function getNetworks(){fetch('/networks').then(r=>r.json()).then(d=>{let e=document.getElementById('networks');e.innerHTML='';d.forEach(n=>{let i=document.createElement('a');i.href='#';i.innerText=n.ssid;i.onclick=()=>{document.getElementById('ssid').value=n.ssid};e.appendChild(i)})}).catch(err=>{console.error('Error fetching networks:',err);document.getElementById('networks').innerHTML='<p class="error">Could not fetch WiFi networks. Please refresh.</p>'})}function getLocation(){let e=document.getElementById('location-error');e.innerHTML='';if(navigator.geolocation){navigator.geolocation.getCurrentPosition(p=>{document.getElementById('lat').value=p.coords.latitude.toFixed(7);document.getElementById('lon').value=p.coords.longitude.toFixed(7)},e=>{let o='Error: '+e.message;1===e.code?o='Error: Geolocation access was denied. Please enable it in your browser settings.':!1===window.isSecureContext&&(o='Error: Geolocation is blocked on insecure connections. This page must be served over HTTPS.'),document.getElementById('location-error').innerHTML=o},{enableHighAccuracy:!0,timeout:5e3,maximumAge:0})}else e.innerHTML='Geolocation is not supported by this browser.'}window.onload=getNetworks;</script></head><body><h1>ISS Tracker Setup</h1><form action="/save"><h2>WiFi</h2><div id="networks"></div><button type="button" onclick="getNetworks()">Refresh</button><br><br><label for="ssid">SSID</label><br><input id="ssid" type="text" name="ssid"><br><label for="pass">Password</label><br><input id="pass" type="password" name="pass"><br><h2>Location</h2><div id="location-error" class="error"></div><button type="button" onclick="getLocation()">Use Current Location</button><br><br><label for="lat">Latitude</label><br><input id="lat" type="text" name="lat"><br><label for="lon">Longitude</label><br><input id="lon" type="text" name="lon"><br><br><input type="submit" value="Save"></form></body></html>)rawliteral";
 
 void webProvision() {
   bool provisioned = false;
@@ -563,10 +563,8 @@ int getAwakeStatus(long time){
 void printLoadingIcons(int x, int line, int loopTime){
   char icons[3] = {'|', '/', '-'};
   int i = (millis()%loopTime)/(loopTime/3);
-  Serial.println(i);
   lcd.setCursor(x, line);
   lcd.print(icons[i]);
-//  delay(loopTime/3);
 }
 
 //https://www.instructables.com/Send-a-Message-on-Discord-Using-Esp32-Arduino-MKR1/
@@ -575,7 +573,7 @@ void printLoadingIcons(int x, int line, int loopTime){
 //32767
 //16776960
 void sendFlybyDiscord(String title, int color, Flyby thisFlyby){
-  String fullTitle = "**" + title + "** \\n\\u0000";
+  String fullTitle = "**" + title + "** \n\u0000";
   String duration = getFormattedTime(thisFlyby.endUTC - thisFlyby.startUTC);
   String awake = getAwakeStatus(thisFlyby.startUTC)?((getAwakeStatus(thisFlyby.startUTC)-1)?"Awake and free!":"Awake"):"Asleep";
   String startET = getFormattedTime(thisFlyby.startUTC + UTC-5, false) + " EST";
@@ -589,7 +587,7 @@ void sendFlybyDiscord(String title, int color, Flyby thisFlyby){
 
   bool a = https.begin(client, WEBHOOK);
   https.addHeader("Content-Type", "application/json");
-  int code = https.POST("{\"content\":\"\",\"embeds\": [{\"title\": \"" + fullTitle + "\", \"color\": " + (String) color + ", \"fields\": [{\"name\": \"__Duration__\",\"value\": \"" + duration + "\\n\\u0000\"}, {\"name\": \"__Sleep Status__\",\"value\": \"" + awake + "\\n\\u0000\"}, {\"name\": \"__Start__\",\"value\": \"" + startET + "\\n" + startCompass + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__Max__\",\"value\": \"" + maxET + "\\n" + maxCompass + "\\n" + maxEl + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__End__\",\"value\": \"" + endET + "\\n" + endCompass + "\", \"inline\": true}] }],\"tts\":false}");
+  int code = https.POST("{\"content\":\"\",\"embeds\": [{\"title\": \"" + fullTitle + "\", \"color\": " + (String) color + ", \"fields\": [{\"name\": \"__Duration__\",\"value\": \"" + duration + "\\n\\u0000\"}, {\"name\": \"__Sleep Status__\",\"value\": \"" + awake + "\\n\\u0000\"}, {\"name\": \"__Start__\",\"value\": \"" + startET + "\\n" + startCompass + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__Max__\",\"value\": \"" + maxET + "\\n" + maxCompass + "\\n" + maxEl + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__End__\",\"value\": \"" + endET + "\\n" + endCompass + "\", \"inline\": true}]} ],\"tts\":false}");
   Serial.println("Send Discord FLYBY POST Code: " + (String) code + ", " + https.errorToString(code));
 }
 
@@ -602,6 +600,6 @@ void sendDiscord(String subContent, int color){
   String content = "";
   bool a = https.begin(client, WEBHOOK);
   https.addHeader("Content-Type", "application/json");
-  int code = https.POST("{\"content\":\"" + content + "\",\"embeds\": [{\"color\": " + (String) color + ", \"fields\": [{\"name\": \"" + subContent + "\", \"value\": \"\"\}] }],\"tts\":false}");
+  int code = https.POST("{\"content\":\"" + content + "\",\"embeds\": [{\"color\": " + (String) color + ", \"fields\": [{\"name\": \"" + subContent + "\", \"value\": \"\"}]} }],\"tts\":false}");
   Serial.println("Send Discord POST Code: " + (String) code + ", " + https.errorToString(code));
 }
