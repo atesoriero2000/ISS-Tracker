@@ -214,7 +214,7 @@ void setup() {
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Connecting WiFi: ");
-  for(int i=0; WiFi.status() != WL_CONNECTED; i++) printLoadingIcons(18, 0, i);
+  while(WiFi.status() != WL_CONNECTED) printLoadingIcons(18, 0, 750);
   lcd.setCursor(18, 0);
   lcd.printByte(7);
   WiFi.setAutoReconnect(true);
@@ -262,7 +262,7 @@ void setup() {
   lastPress = time(nullptr);
 }
 
-const char* html = "<!DOCTYPE html><html><head><title>ISS Tracker Setup</title></head><body><h1>ISS Tracker Setup</h1><form action=/save><h2>WiFi</h2><label>SSID</label><br><input type=text name=ssid><br><label>Password</label><br><input type=password name=pass><br><h2>Location</h2><label>Latitude</label><br><input type=text name=lat><br><label>Longitude</label><br><input type=text name=lon><br><br><input type=submit value=Save></form></body></html>";
+const char* html = "<!DOCTYPE html><html><head><title>ISS Tracker Setup</title><script>function getNetworks(){fetch('/networks').then(r=>r.json()).then(d=>{let e=document.getElementById('networks');e.innerHTML='';d.forEach(n=>{let i=document.createElement('a');i.href='#';i.innerText=n.ssid;i.onclick=()=>{document.getElementById('ssid').value=n.ssid};e.appendChild(i);e.appendChild(document.createElement('br'))})})}function getLocation(){navigator.geolocation.getCurrentPosition(p=>{document.getElementById('lat').value=p.coords.latitude;document.getElementById('lon').value=p.coords.longitude})}window.onload=getNetworks;</script></head><body><h1>ISS Tracker Setup</h1><form action=/save><h2>WiFi</h2><div id=networks></div><button type=button onclick=getNetworks()>Refresh</button><br><br><label>SSID</label><br><input id=ssid type=text name=ssid><br><label>Password</label><br><input type=password name=pass><br><h2>Location</h2><button type=button onclick=getLocation()>Use Current Location</button><br><br><label>Latitude</label><br><input id=lat type=text name=lat><br><label>Longitude</label><br><input id=lon type=text name=lon><br><br><input type=submit value=Save></form></body></html>";
 
 void webProvision() {
   bool provisioned = false;
@@ -272,15 +272,28 @@ void webProvision() {
   lcd.setCursor(0, 1);
   lcd.print("Connect to:");
   lcd.setCursor(0, 2);
-  lcd.print("ISS-Tracker-AP");
+  lcd.print(" ISS-Tracker-AP");
   lcd.setCursor(0, 3);
-  lcd.print("http://192.168.4.1/"); //http://iss-tracker.local
+  lcd.print(" http://192.168.4.1"); //http://iss-tracker.local
 
   WiFi.softAP("ISS-Tracker-AP");
   MDNS.begin("iss-tracker");
 
   server.on("/", []() {
     server.send(200, "text/html", html);
+  });
+
+  server.on("/networks", []() {
+    String json = "[";
+    int n = WiFi.scanNetworks();
+    for (int i = 0; i < n; ++i) {
+      json += "{\"ssid\":\"" + WiFi.SSID(i) + "\"}";
+      if (i < n - 1) {
+        json += ",";
+      }
+    }
+    json += "]";
+    server.send(200, "application/json", json);
   });
 
   server.on("/save", [&]() {
@@ -300,7 +313,7 @@ void webProvision() {
   server.begin();
 
   while (!provisioned) {
-    printLoadingIcons(18, 0, millis()/100);
+    printLoadingIcons(18, 0, 750);
     server.handleClient();
     dnsServer.processNextRequest();
   }
@@ -547,10 +560,13 @@ int getAwakeStatus(long time){
   
 }
 
-void printLoadingIcons(int x, int line, int i){
+void printLoadingIcons(int x, int line, int loopTime){
+  char icons[3] = {'|', '/', '-'};
+  int i = (millis()%loopTime)/(loopTime/3);
+  Serial.println(i);
   lcd.setCursor(x, line);
-  lcd.print( !(i%3) ? "|" : (i%3==1 ? "/" : "-" ) );
-  delay(250);
+  lcd.print(icons[i]);
+//  delay(loopTime/3);
 }
 
 //https://www.instructables.com/Send-a-Message-on-Discord-Using-Esp32-Arduino-MKR1/
