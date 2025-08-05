@@ -7,6 +7,9 @@
 #include <WifiLocation.h>
 
 // ARISS Station Status: https://www.ariss.org/current-status-of-iss-stations.html
+// Notes:
+// Runtime with backlight:      19 hrs +- 1hr (2 tests)
+// Runtime without backlight:   24 hrs        (1 test)
 
 //TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 /*
@@ -28,6 +31,7 @@
     
  * SWITCH ALL ??:: to arrays
  * Call Signs
+ * Piss API
  */
 
 // const String LATs[] = {}
@@ -44,8 +48,9 @@
 
 #define UTC-5 -5*60*60
 
-#define GOOGLE_API_KEY "xxxxxxxxxxxxx"
-#define WEBHOOK "xxxxxxxxxxxxxxxx"
+#define GOOGLE_API_KEY "AIzaSyCMebnUWyOQuw8xNj6oeMZsH7qBqbOqBbU"
+//#define WEBHOOK "https://discord.com/api/webhooks/1057187391338729502/Ouv3SCZVQcniGfEuoDIc8ryEyzVlT--8vy5JdpkK2KpTGojrpdZgwd1Ugj2twUTDYaTP"
+#define WEBHOOK "https://discord.com/api/webhooks/1168805418320015411/7dY7KrnK_vq1H93M6f442cF5OTR29IlqCDzZrd_AXwy8re_8UZMLB1fqOnFgLUAWLLr7"
 
 struct SSID_Loc {
   String NAME;
@@ -56,11 +61,11 @@ struct SSID_Loc {
 };
 
 SSID_Loc LOC_ARR[5] = {
-  {"Brackett",    "WPI Sailbot",  "xxxxxxxx",     "42.35111",   "-71.16504"},   //Brackett
-  {"Albion",      "36Albion",     "xxxxxxxx",   "42.399647",  "-71.106448"},  //Albion
-  {"Chatham",     "Tesfamily",    "xxxxxxxx",  "40.740686",  "-74.384478"},  //Chatham
-  {"Hi (MA)",     "Hi (3)",       "xxxxxxxx",       "42.399647",  "-71.106448"},  //Albion
-  {"Hi (Pemi)",   "Hi (3)",       "xxxxxxxx",       "44.14429",   "-71.60423"},   //Pemi
+  {"HighRes",     "HRBS-Guest",   "highresguest",   "42.576562",  "-70.908324"},  //Work
+  {"Albion",      "36Albion",     "LigmaChops24",   "42.399647",  "-71.106448"},  //Albion
+  {"Chatham",     "Tesfamily",    "Tes8628125601",  "40.740686",  "-74.384478"},  //Chatham
+  {"Hi (MA)",     "Hi (3)",       "12345671",       "42.399647",  "-71.106448"},  //Albion
+  {"Hi (Pemi)",   "Hi (3)",       "12345671",       "44.14429",   "-71.60423"},   //Pemi
 };
 SSID_Loc SelectedLocation;
 
@@ -83,6 +88,7 @@ DynamicJsonDocument doc(4096);
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 
 static time_t now;
+static time_t lastHeartbeat = 0;
 int page = 1;
 long lastTimeUpdate = 0;
 int lastPage = 0;
@@ -139,27 +145,24 @@ void setup() {
   //################
   //## WIFI Setup ##
   //################
+  long lastMillis = millis() - 2000;
+  bool flipFlop = true;
   while(buttons == 0){
     buttons = digitalRead(B5)<<4 | digitalRead(B4)<<3 | digitalRead(B3)<<2 | digitalRead(B2)<<1 | digitalRead(B1);
 
-    lcd.setCursor(0,0);
-    lcd.print("Select SSID: ");
-    lcd.setCursor(1,1);
-    if (millis()-1000 % 4000 < 2000){ //TODO: Slim down and update screen only on screen change
-      lcd.print("B1: " + LOC_ARR[0].NAME + "                ");
+    if(millis()-lastMillis > 2000){
+      lcd.clear();
+      lcd.print("Select SSID: ");
+      lcd.setCursor(1,1);
+      lcd.print(flipFlop ? "B1: " + LOC_ARR[0].NAME : "");
       lcd.setCursor(1,2);
-      lcd.print("B2: " + LOC_ARR[1].NAME + "                ");
+      lcd.print(flipFlop ? "B2: " + LOC_ARR[1].NAME : "B4: " + LOC_ARR[3].NAME);
       lcd.setCursor(1,3);
-      lcd.print("B3: " + LOC_ARR[2].NAME + "                ");
-
-    } else {
-      lcd.print("                ");
-      lcd.setCursor(1,2);
-      lcd.print("B4: " + LOC_ARR[3].NAME + "                ");
-      lcd.setCursor(1,3);
-      lcd.print("B5: " + LOC_ARR[4].NAME + "                ");
-
+      lcd.print(flipFlop ? "B3: " + LOC_ARR[2].NAME : "B5: " + LOC_ARR[4].NAME);
+      flipFlop = !flipFlop;
+      lastMillis = millis();
     }
+
     if (millis() > 20000) buttons = B00010;
     delay(10);
   }
@@ -242,7 +245,7 @@ void loop() {
       * if now > nextFlyby.endUTC
    */
    
-  if( !nextFlyby.startUTC  ||  ((uint32_t) now % 60 == 0) && !(nextFlyby.startUTC-120 < (uint32_t) now)  ||  (flybyNow && (uint32_t) now > nextFlyby.endUTC) ){
+  if(!nextFlyby.startUTC  ||  ((uint32_t) now % 60 == 0) && !(nextFlyby.startUTC-120 < (uint32_t) now)  ||  (flybyNow && (uint32_t) now > nextFlyby.endUTC) ){
     bool a = https.begin(client, HOST, PORT, URL);
     httpsCode = https.GET();
     Serial.println("Send NY2O GET Code: " + (String) httpsCode + ", " + https.errorToString(httpsCode));
@@ -306,6 +309,13 @@ void loop() {
   //## Discord Messages ##
   //######################
 
+  // FOR BATTERY TESTING: Send a msg every 15 minutes
+  // if(now-lastHeartbeat>15*50){
+  //   sendDiscord("Heartbeat", 65280);
+  //   lastHeartbeat = now;
+  // }
+
+  //If a flyby either starts or ends, alert with a discord message
   if(flybyNow != lastFlybyNowState){
     if(flybyNow) sendFlybyDiscord("Flyby NOW!!!!", 32767, nextFlyby);
     else sendFlybyDiscord("Next Flyby:", 16760576, nextFlyby);

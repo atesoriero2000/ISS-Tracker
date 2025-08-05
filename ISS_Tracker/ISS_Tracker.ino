@@ -7,10 +7,10 @@
 //#include "Symbols.h"
 
 #define SSID  "WPI Sailbot"
-#define KEY   "xxxxxxxxxxxx"
+#define KEY   "YJKFMP6B8D"
 
 // N2YO API Reference: https://www.n2yo.com/api/
-// https://api.n2yo.com/rest/v1/satellite/radiopasses/25544/42.35111/-71.16504/0/1/40/&apiKey=xxxxxxxxxxxxxxxxx
+// https://api.n2yo.com/rest/v1/satellite/radiopasses/25544/42.35111/-71.16504/0/1/40/&apiKey=C84895-P3LRCE-AFE97B-54RM
 const String ISS_ID = "25544";
 const String LAT = "42.35111";
 const String LONG = "-71.16504";
@@ -18,7 +18,7 @@ const String ALT = "0";
 const String DAYS = "1";
 const String MIN_ELE = "10"; //degrees
 //const String MIN_VIS = "60"; //seconds visible
-const String API_KEY = "xxxxxxxxxxxxxxxxxxxx"; //NOTE: 1000 req/hour
+const String API_KEY = "C84895-P3LRCE-AFE97B-54RM"; //NOTE: 1000 req/hour
 
 //String URLV = "/rest/v1/satellite/visualpasses/" + ISS_ID + "/" + LAT + "/" + LONG + "/" + ALT + "/" + DAYS + "/" + MIN_VIS + "/&apiKey=" + API_KEY;
 String URLR = "/rest/v1/satellite/radiopasses/" + ISS_ID + "/" + LAT + "/" + LONG + "/" + ALT + "/" + DAYS + "/" + MIN_ELE + "/&apiKey=" + API_KEY;
