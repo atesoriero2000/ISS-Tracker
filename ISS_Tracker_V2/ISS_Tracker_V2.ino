@@ -5,6 +5,8 @@
 #include <ArduinoJson.h>
 #include "Symbols.h"
 #include <WifiLocation.h>
+#include <ESP8266WebServerSecure.h>
+#include "cert.h"
 
 // ARISS Station Status: https://www.ariss.org/current-status-of-iss-stations.html
 
@@ -61,11 +63,12 @@
 #define GOOGLE_API_KEY "AIzaSyCMebnUWyOQuw8xNj6oeMZsH7qBqbOqBbU"
 #define WEBHOOK "https://discord.com/api/webhooks/1168805418320015411/7dY7KrnK_vq1H93M6f442cF5OTR29IlqCDzZrd_AXwy8re_8UZMLB1fqOnFgLUAWLLr7"
 
-#include <ESP8266WebServer.h>
 #include <DNSServer.h>
+#include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 
 ESP8266WebServer server(80);
+BearSSL::ESP8266WebServerSecure secureServer(443);
 DNSServer dnsServer;
 
 struct SSID_Loc {
@@ -214,7 +217,10 @@ void setup() {
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Connecting WiFi: ");
-  while(WiFi.status() != WL_CONNECTED) printLoadingIcons(18, 0, 750);
+  while(WiFi.status() != WL_CONNECTED) {
+    printLoadingIcons(18, 0, 750);
+    yield();
+  }
   lcd.setCursor(18, 0);
   lcd.printByte(7);
   WiFi.setAutoReconnect(true);
@@ -274,26 +280,49 @@ void webProvision() {
   lcd.setCursor(0, 2);
   lcd.print(" ISS-Tracker-AP");
   lcd.setCursor(0, 3);
-  lcd.print(" http://192.168.4.1"); //http://iss-tracker.local
+  lcd.print(" https://192.168.4.1"); //http://iss-tracker.local
 
   WiFi.softAP("ISS-Tracker-AP");
   MDNS.begin("iss-tracker");
 
+  static BearSSL::X509List cert(certificate);
+  static BearSSL::PrivateKey key(private_key);
+  secureServer.getServer().setRSACert(&cert, &key);
+
   server.on("/", []() {
     server.send(200, "text/html", html);
   });
+  secureServer.on("/", []() {
+    secureServer.send(200, "text/html", html);
+  });
 
   server.on("/networks", []() {
-    String json = "[";
+    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server.send(200, "application/json", "[");
     int n = WiFi.scanNetworks();
     for (int i = 0; i < n; ++i) {
-      json += "{\"ssid\":\"" + WiFi.SSID(i) + "\"}";
+      String ssid = WiFi.SSID(i);
+      String item = "{\"ssid\":\"" + ssid + "\"}";
       if (i < n - 1) {
-        json += ",";
+        item += ",";
       }
+      server.sendContent(item);
     }
-    json += "]";
-    server.send(200, "application/json", json);
+    server.sendContent("]");
+  });
+  secureServer.on("/networks", []() {
+    secureServer.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    secureServer.send(200, "application/json", "[");
+    int n = WiFi.scanNetworks();
+    for (int i = 0; i < n; ++i) {
+      String ssid = WiFi.SSID(i);
+      String item = "{\"ssid\":\"" + ssid + "\"}";
+      if (i < n - 1) {
+        item += ",";
+      }
+      secureServer.sendContent(item);
+    }
+    secureServer.sendContent("]");
   });
 
   server.on("/save", [&]() {
@@ -305,26 +334,43 @@ void webProvision() {
     delay(1000);
     provisioned = true;
   });
+  secureServer.on("/save", [&]() {
+    SelectedLocation.SSID = secureServer.arg("ssid");
+    SelectedLocation.KEY = secureServer.arg("pass");
+    SelectedLocation.LAT = secureServer.arg("lat");
+    SelectedLocation.LONG = secureServer.arg("lon");
+    secureServer.send(200, "text/plain", "Saved! You may exit this page");
+    delay(1000);
+    provisioned = true;
+  });
 
   server.onNotFound([]() {
     server.send(404, "text/plain", "Not found");
   });
+  secureServer.onNotFound([]() {
+    secureServer.send(404, "text/plain", "Not found");
+  });
+
 
   server.begin();
+  secureServer.begin();
 
   while (!provisioned) {
     printLoadingIcons(18, 0, 750);
     server.handleClient();
+    secureServer.handleClient();
     dnsServer.processNextRequest();
+    yield();
   }
 
-  server.stop();
+  secureServer.stop();
   WiFi.softAPdisconnect(true);
   MDNS.end();
 }
 
 void loop() {
-    now = time(nullptr); // + (6*60 + 10)*60;
+  yield();
+  now = time(nullptr); // + (6*60 + 10)*60;
 
   //################
   //## API Update ##
@@ -573,7 +619,7 @@ void printLoadingIcons(int x, int line, int loopTime){
 //32767
 //16776960
 void sendFlybyDiscord(String title, int color, Flyby thisFlyby){
-  String fullTitle = "**" + title + "** \n\u0000";
+  String fullTitle = "**" + title + "** \\n\\u0000";
   String duration = getFormattedTime(thisFlyby.endUTC - thisFlyby.startUTC);
   String awake = getAwakeStatus(thisFlyby.startUTC)?((getAwakeStatus(thisFlyby.startUTC)-1)?"Awake and free!":"Awake"):"Asleep";
   String startET = getFormattedTime(thisFlyby.startUTC + UTC-5, false) + " EST";
@@ -587,7 +633,7 @@ void sendFlybyDiscord(String title, int color, Flyby thisFlyby){
 
   bool a = https.begin(client, WEBHOOK);
   https.addHeader("Content-Type", "application/json");
-  int code = https.POST("{\"content\":\"\",\"embeds\": [{\"title\": \"" + fullTitle + "\", \"color\": " + (String) color + ", \"fields\": [{\"name\": \"__Duration__\",\"value\": \"" + duration + "\\n\\u0000\"}, {\"name\": \"__Sleep Status__\",\"value\": \"" + awake + "\\n\\u0000\"}, {\"name\": \"__Start__\",\"value\": \"" + startET + "\\n" + startCompass + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__Max__\",\"value\": \"" + maxET + "\\n" + maxCompass + "\\n" + maxEl + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__End__\",\"value\": \"" + endET + "\\n" + endCompass + "\", \"inline\": true}]} ],\"tts\":false}");
+  int code = https.POST("{\"content\":\"\",\"embeds\": [{\"title\": \"" + fullTitle + "\", \"color\": " + (String) color + ", \"fields\": [{\"name\": \"__Duration__\",\"value\": \"" + duration + "\\n\\u0000\"}, {\"name\": \"__Sleep Status__\",\"value\": \"" + awake + "\\n\\u0000\"}, {\"name\": \"__Start__\",\"value\": \"" + startET + "\\n" + startCompass + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__Max__\",\"value\": \"" + maxET + "\\n" + maxCompass + "\\n" + maxEl + "\\n\\u0000\", \"inline\": true}, {\"name\": \"__End__\",\"value\": \"" + endET + "\\n" + endCompass + "\", \"inline\": true}] }],\"tts\":false}");
   Serial.println("Send Discord FLYBY POST Code: " + (String) code + ", " + https.errorToString(code));
 }
 
@@ -600,6 +646,6 @@ void sendDiscord(String subContent, int color){
   String content = "";
   bool a = https.begin(client, WEBHOOK);
   https.addHeader("Content-Type", "application/json");
-  int code = https.POST("{\"content\":\"" + content + "\",\"embeds\": [{\"color\": " + (String) color + ", \"fields\": [{\"name\": \"" + subContent + "\", \"value\": \"\"}]} }],\"tts\":false}");
+  int code = https.POST("{\"content\":\"" + content + "\",\"embeds\": [{\"color\": " + (String) color + ", \"fields\": [{\"name\": \"" + subContent + "\", \"value\": \"\"\}] }],\"tts\":false}");
   Serial.println("Send Discord POST Code: " + (String) code + ", " + https.errorToString(code));
 }
