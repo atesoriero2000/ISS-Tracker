@@ -80,11 +80,11 @@ struct SSID_Loc {
 };
 
 SSID_Loc LOC_ARR[5] = {
-  {"Brackett",    "WPI Sailbot",  "xxxxxxxx",     "42.35111",   "-71.16504"},   //Brackett
-  {"Albion",      "36Albion",     "xxxxxxxx",   "42.399647",  "-71.106448"},  //Albion
+  {"HighRes",     "HRBS-Guest",   "highresguest",   "42.576562",  "-70.908324"},  //Work
+  {"Albion",      "36Albion",     "LigmaChops24",   "42.399647",  "-71.106448"},  //Albion
   {"Chatham",     "Tesfamily",    "Tes8628125601",  "40.740686",  "-74.384478"},  //Chatham
-  {"Hi (MA)",     "Hi (3)",       "xxxxxxxx",       "42.399647",  "-71.106448"},  //Albion
-  {"Hi (Pemi)",   "Hi (3)",       "xxxxxxxx",       "44.14429",   "-71.60423"},   //Pemi NOTE: Overwritten for Web Provisioning
+  {"Hi (MA)",     "Hi (3)",       "12345671",       "42.399647",  "-71.106448"},  //Albion
+  {"Hi (Pemi)",   "Hi (3)",       "12345671",       "44.14429",   "-71.60423"},   //Pemi  NOTE: Overwritten for Web Provisioning
 };
 SSID_Loc SelectedLocation;
 
@@ -168,7 +168,7 @@ void setup() {
   while(buttons == 0){
     buttons = digitalRead(B5)<<4 | digitalRead(B4)<<3 | digitalRead(B3)<<2 | digitalRead(B2)<<1 | digitalRead(B1);
 
-    int current_page = (millis() / 2000) % 2;
+    int current_page = (millis() / 2000) % 2; //TODO first page changes too quick
     if (current_page != wifi_page) {
       wifi_page = current_page;
       lcd.clear();
@@ -191,7 +191,7 @@ void setup() {
 
       }
     }
-    if (millis() > 20000) buttons = B00100;
+    if (millis() > 20000) buttons = B00010;
     delay(10);
   }
 
